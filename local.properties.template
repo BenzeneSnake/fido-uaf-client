@@ -1,0 +1,30 @@
+## ================================================================
+## Local Properties 模板文件
+## 此文件用於配置本機環境，不應提交到 Git
+## ================================================================
+## 使用方式：
+## 1. 複製此文件並重命名為 local.properties
+## 2. 修改下方的 SDK 路徑為您的實際路徑
+## 3. 執行 ./gradlew build
+## ================================================================
+
+# ------------------------------------------------------------
+# Android SDK 位置
+# ------------------------------------------------------------
+# Windows 範例：
+# sdk.dir=C\:\\Users\\YourName\\AppData\\Local\\Android\\Sdk
+
+# Linux/Mac 範例：
+# sdk.dir=/home/username/Android/Sdk
+# sdk.dir=/Users/username/Library/Android/sdk
+
+# WSL (Windows Subsystem for Linux) 範例：
+# sdk.dir=/mnt/c/Users/YourName/AppData/Local/Android/Sdk
+
+# 請取消註解並修改下方路徑為您的 Android SDK 實際位置：
+sdk.dir=
+
+# ------------------------------------------------------------
+# 可選：NDK 路徑（如果需要編譯 Native 程式碼）
+# ------------------------------------------------------------
+# ndk.dir=C\:\\Users\\YourName\\AppData\\Local\\Android\\Sdk\\ndk\\25.1.8937393

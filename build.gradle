@@ -1,0 +1,30 @@
+// ================================================================
+// 專案層級的 Gradle 配置文件
+// 這個文件定義了整個專案的構建配置
+// ================================================================
+
+// 插件管理區塊 - 定義從哪裡下載 Gradle 插件
+buildscript {
+    repositories {
+        google()           // Google 的 Maven 倉庫（Android 相關套件）
+        mavenCentral()     // Maven 中央倉庫（通用 Java 套件）
+    }
+    dependencies {
+        // Android Gradle 插件 - 用於構建 Android 應用程式
+        // 版本對應：AGP 8.7 支援 Gradle 8.9+
+        classpath 'com.android.tools.build:gradle:8.7.3'
+    }
+}
+
+// 所有子專案（包括 app 模組）的共用配置
+allprojects {
+    repositories {
+        google()           // Google 的 Maven 倉庫
+        mavenCentral()     // Maven 中央倉庫（取代已關閉的 jcenter）
+    }
+}
+
+// 清理任務 - 相當於 Maven 的 clean
+task clean(type: Delete) {
+    delete rootProject.buildDir  // 刪除 build 目錄
+}

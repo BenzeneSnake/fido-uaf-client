@@ -1,0 +1,106 @@
+// ================================================================
+// App 模組的 Gradle 配置文件
+// 這個文件定義了 Android App 的具體設定
+// ================================================================
+
+// 應用 Android 應用程式插件
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    // ============================================================
+    // 編譯設定
+    // ============================================================
+    namespace 'org.ebayopensource.fidouafclient'  // App 的命名空間
+    compileSdk 34                                  // 編譯使用的 Android SDK 版本（Android 14）
+
+    // ============================================================
+    // 預設配置
+    // ============================================================
+    defaultConfig {
+        applicationId "org.ebayopensource.fidouafclient"  // App 在 Google Play 上的唯一 ID
+
+        minSdk 23       // 最低支援 Android 6.0（Marshmallow）
+        targetSdk 34    // 目標 Android 14
+
+        versionCode 1           // App 版本號碼（每次發布遞增）
+        versionName "1.0"       // 顯示給用戶的版本名稱
+
+        // 測試相關設定
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+
+    // ============================================================
+    // 構建類型（Debug / Release）
+    // ============================================================
+    buildTypes {
+        release {
+            minifyEnabled false  // 不啟用程式碼混淆（可選：改為 true 以減少 APK 大小）
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true      // 允許除錯
+        }
+    }
+
+    // ============================================================
+    // Java 版本設定
+    // ============================================================
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17  // 使用 Java 17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // ============================================================
+    // Lint 選項（程式碼檢查）
+    // ============================================================
+    lint {
+        // 忽略某些警告，避免構建失敗
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    // ============================================================
+    // 打包選項
+    // ============================================================
+    packagingOptions {
+        resources {
+            // 排除重複的 LICENSE 檔案
+            excludes += ['META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+        }
+    }
+}
+
+// ================================================================
+// 依賴管理（類似 Maven 的 dependencies）
+// ================================================================
+dependencies {
+    // ------------------------------------------------------------
+    // Android 支援庫
+    // ------------------------------------------------------------
+    // 注意：原本使用的 support-v4 已棄用，改用 AndroidX
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+
+    // ------------------------------------------------------------
+    // JSON 處理
+    // ------------------------------------------------------------
+    implementation 'com.google.code.gson:gson:2.10.1'  // 從 2.3.1 更新到 2.10.1
+
+    // ------------------------------------------------------------
+    // 加密庫
+    // ------------------------------------------------------------
+    // SpongyCastle - BouncyCastle 的 Android 版本
+    implementation 'com.madgag.spongycastle:prov:1.58.0.0'
+
+    // Apache Commons Codec - 編碼/解碼工具
+    implementation 'commons-codec:commons-codec:1.16.0'  // 從 1.10 更新到 1.16.0
+
+    // ------------------------------------------------------------
+    // 測試相關（可選）
+    // ------------------------------------------------------------
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
