@@ -173,6 +173,7 @@ fidouafclient/
 │       └── gradle-wrapper.properties       # Gradle Version Configuration
 ├── build.gradle                           # Project-level Gradle Configuration
 ├── settings.gradle                        # Project Settings
+├── gradle.properties                      # Configuration file used by the Gradle build system 
 ├── gradlew                                # Gradle Wrapper Script (Linux/Mac)
 ├── gradlew.bat                            # Gradle Wrapper Script (Windows)
 ├── local.properties.template              # SDK Path Template
@@ -298,7 +299,7 @@ adb logcat | grep "fidouafclient"
 
 This Android client must work together with the FIDO UAF Server:
 
-1. **啟動後端伺服器**
+1. **Run the FIDO UAF Server**
    ```bash
    cd ../fido-uaf-server
    mvn spring-boot:run

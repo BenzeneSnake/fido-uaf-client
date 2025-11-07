@@ -181,6 +181,7 @@ fidouafclient/
 │       └── gradle-wrapper.properties       # Gradle 版本配置
 ├── build.gradle                           # 專案層級的 Gradle 配置
 ├── settings.gradle                        # 專案設定
+├── gradle.properties                      # 給 Gradle 構建系統使用的配置文件
 ├── gradlew                                # Gradle Wrapper 腳本（Linux/Mac）
 ├── gradlew.bat                            # Gradle Wrapper 腳本（Windows）
 ├── local.properties.template              # SDK 路徑模板
