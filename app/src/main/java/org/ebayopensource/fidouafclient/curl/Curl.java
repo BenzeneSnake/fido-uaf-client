@@ -16,99 +16,160 @@
 
 package org.ebayopensource.fidouafclient.curl;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import android.os.AsyncTask;
+
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import javax.net.ssl.HostnameVerifier;
-
-import org.apache.http.Header;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.scheme.SchemeRegistry;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.SingleClientConnManager;
-
-import android.os.AsyncTask;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class Curl {
 
-	public static String toStr(HttpResponse response) {
-		String result = "";
+	private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
+
+	// 創建一個共享的 OkHttpClient 實例（更高效）
+	// 默認配置：支持 HTTPS，30秒超時
+	private static final OkHttpClient httpClient = createHttpClient();
+
+	/**
+	 * 創建 HTTP 客戶端
+	 * 支持 HTTPS 和自簽名證書（類似原來的實現）
+	 */
+	private static OkHttpClient createHttpClient() {
 		try {
-			InputStream in = response.getEntity().getContent();
-			BufferedReader reader = new BufferedReader(
-					new InputStreamReader(in));
-			StringBuilder str = new StringBuilder();
-			String line = null;
-			while ((line = reader.readLine()) != null) {
-				str.append(line + "\n");
-			}
-			in.close();
-			result = str.toString();
-		} catch (Exception ex) {
-			result = "Error";
+			// 創建信任所有證書的 TrustManager（注意：生產環境不推薦）
+			final TrustManager[] trustAllCerts = new TrustManager[]{
+					new X509TrustManager() {
+						@Override
+						public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+						}
+
+						@Override
+						public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+						}
+
+						@Override
+						public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+							return new java.security.cert.X509Certificate[]{};
+						}
+					}
+			};
+
+			// 安裝信任所有證書的 TrustManager
+			final SSLContext sslContext = SSLContext.getInstance("TLS");
+			sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+
+			// 創建允許所有主機名的 HostnameVerifier
+			final HostnameVerifier allowAllHostnames = new HostnameVerifier() {
+				@Override
+				public boolean verify(String hostname, SSLSession session) {
+					return true;
+				}
+			};
+
+			return new OkHttpClient.Builder()
+					.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0])
+					.hostnameVerifier(allowAllHostnames)
+					.connectTimeout(30, TimeUnit.SECONDS)
+					.readTimeout(30, TimeUnit.SECONDS)
+					.writeTimeout(30, TimeUnit.SECONDS)
+					.build();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
-		return result;
 	}
-	
+
+	/**
+	 * 將 Response 轉換為字符串
+	 */
+	private static String toStr(Response response) {
+		try {
+			if (response.body() != null) {
+				return response.body().string();
+			}
+			return "";
+		} catch (IOException ex) {
+			ex.printStackTrace();
+			return "Error";
+		}
+	}
+
+	/**
+	 * 在單獨的線程中執行 GET 請求
+	 */
+    //TODO:DEPRECATE方法要改成用OKHTTP方法
 	public static String getInSeparateThread(String url) {
 		GetAsyncTask async = new GetAsyncTask();
 		async.execute(url);
-		while (!async.isDone()){
+		while (!async.isDone()) {
 			try {
 				Thread.sleep(1);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 		return async.getResult();
 	}
-	
+
+	/**
+	 * 在單獨的線程中執行 POST 請求
+	 */
 	public static String postInSeparateThread(String url, String header, String data) {
 		PostAsyncTask async = new PostAsyncTask();
 		async.execute(url, header, data);
-		while (!async.isDone()){
+		while (!async.isDone()) {
 			try {
 				Thread.sleep(1);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 		return async.getResult();
 	}
-	
+
+	/**
+	 * 執行 GET 請求（無自定義 headers）
+	 */
 	public static String get(String url) {
-		return get(url,null);
+		return get(url, null);
 	}
 
-	public static String get(String url, String[] header) {
+	/**
+	 * 執行 GET 請求（帶自定義 headers）
+	 * @param url 請求的 URL
+	 * @param headers 自定義 headers 陣列，格式："Header-Name:Header-Value"
+	 */
+	public static String get(String url, String[] headers) {
 		String ret = "";
 		try {
+			Request.Builder requestBuilder = new Request.Builder()
+					.url(url);
 
-			HttpClient httpClient = getClient(url);
-
-			HttpGet request = new HttpGet(url);
-			try {
-				if (header != null){
-					for (String h : header){
-						String[] split = h.split(":");
-						request.addHeader(split[0], split[1]);
+			// 添加自定義 headers
+			if (headers != null) {
+				for (String h : headers) {
+					String[] split = h.split(":", 2);
+					if (split.length == 2) {
+						requestBuilder.addHeader(split[0].trim(), split[1].trim());
 					}
 				}
-				HttpResponse response = httpClient.execute(request);
-				ret = Curl.toStr(response);
-				Header[] headers = response.getAllHeaders();
+			}
 
-			} catch (Exception ex) {
+			Request request = requestBuilder.build();
+
+			try (Response response = httpClient.newCall(request).execute()) {
+				ret = toStr(response);
+			} catch (IOException ex) {
 				ex.printStackTrace();
 				ret = "{'error_code':'connect_fail','url':'" + url + "'}";
 			}
@@ -119,31 +180,48 @@ public class Curl {
 
 		return ret;
 	}
-	
+
+	/**
+	 * 執行 POST 請求（header 以空格分隔的字符串）
+	 */
 	public static String post(String url, String header, String data) {
-		return post (url, header.split(" "), data);
+		if (header != null && !header.isEmpty()) {
+			return post(url, header.split(" "), data);
+		}
+		return post(url, (String[]) null, data);
 	}
-	
-	public static String post(String url, String[] header, String data) {
+
+	/**
+	 * 執行 POST 請求（帶自定義 headers）
+	 * @param url 請求的 URL
+	 * @param headers 自定義 headers 陣列，格式："Header-Name:Header-Value"
+	 * @param data 請求體數據
+	 */
+	public static String post(String url, String[] headers, String data) {
 		String ret = "";
 		try {
+			// 創建請求體
+			RequestBody body = RequestBody.create(data, MEDIA_TYPE_JSON);
 
-			HttpClient httpClient = getClient(url);
+			Request.Builder requestBuilder = new Request.Builder()
+					.url(url)
+					.post(body);
 
-			HttpPost request = new HttpPost(url);
-			if (header != null){
-				for (String h : header){
-					String[] split = h.split(":");
-					request.addHeader(split[0], split[1]);
+			// 添加自定義 headers
+			if (headers != null) {
+				for (String h : headers) {
+					String[] split = h.split(":", 2);
+					if (split.length == 2) {
+						requestBuilder.addHeader(split[0].trim(), split[1].trim());
+					}
 				}
 			}
-			request.setEntity(new StringEntity(data));
-			try {
-				HttpResponse response = httpClient.execute(request);
-				ret = Curl.toStr(response);
-				Header[] headers = response.getAllHeaders();
 
-			} catch (Exception ex) {
+			Request request = requestBuilder.build();
+
+			try (Response response = httpClient.newCall(request).execute()) {
+				ret = toStr(response);
+			} catch (IOException ex) {
 				ex.printStackTrace();
 				ret = "{'error_code':'connect_fail','url':'" + url + "'}";
 			}
@@ -154,74 +232,66 @@ public class Curl {
 
 		return ret;
 	}
-
-	private static HttpClient getClient(String url) {
-		HttpClient httpClient = new DefaultHttpClient();
-		if (url.toLowerCase().startsWith("https")) {
-			httpClient = createHttpsClient();
-		}
-		return httpClient;
-	}
-
-	private static HttpClient createHttpsClient() {
-		HostnameVerifier hostnameVerifier = org.apache.http.conn.ssl.SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
-		SchemeRegistry registry = new SchemeRegistry();
-		SSLSocketFactory socketFactory = SSLSocketFactory.getSocketFactory();
-		socketFactory
-				.setHostnameVerifier((X509HostnameVerifier) hostnameVerifier);
-		registry.register(new Scheme("https", socketFactory, 443));
-		HttpClient client = new DefaultHttpClient();
-		SingleClientConnManager mgr = new SingleClientConnManager(
-				client.getParams(), registry);
-		DefaultHttpClient httpClient = new DefaultHttpClient(mgr,
-				client.getParams());
-		return httpClient;
-	}
-
 }
 
-class GetAsyncTask extends AsyncTask<String, Integer, String>{
+/**
+ * AsyncTask for GET requests
+ */
+class GetAsyncTask extends AsyncTask<String, Integer, String> {
 
 	private String result = null;
 	private boolean done = false;
+
 	public boolean isDone() {
 		return done;
 	}
+
 	public String getResult() {
 		return result;
 	}
+
 	@Override
 	protected String doInBackground(String... args) {
 		result = Curl.get(args[0]);
 		done = true;
 		return result;
 	}
+
 	protected void onProgressUpdate(Integer... progress) {
-    }
-    protected void onPostExecute(String result) {
+	}
+
+	protected void onPostExecute(String result) {
 		this.result = result;
 		done = true;
 	}
 }
 
-class PostAsyncTask extends AsyncTask<String, Integer, String>{
+/**
+ * AsyncTask for POST requests
+ */
+class PostAsyncTask extends AsyncTask<String, Integer, String> {
 
 	private String result = null;
 	private boolean done = false;
+
 	public boolean isDone() {
 		return done;
 	}
+
 	public String getResult() {
 		return result;
 	}
+
 	@Override
 	protected String doInBackground(String... args) {
-		result = Curl.post(args[0],args[1],args[2]);//(url, header, data)
+		result = Curl.post(args[0], args[1], args[2]); // (url, header, data)
 		done = true;
 		return result;
 	}
+
 	protected void onProgressUpdate(Integer... progress) {
-    }
+	}
+
 	@Override
 	protected void onPostExecute(String result) {
 		this.result = result;

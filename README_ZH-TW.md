@@ -320,7 +320,31 @@ adb logcat | grep "fidouafclient"
    - 如果使用實體手機，需要使用電腦的 IP 位址（而非 localhost）
    - 例如：`http://1XX.XXX.X.XXX:8080`
 
-3. **確保網路可達**
+3. **配置網路安全設定（用於 HTTP 通訊）**
+
+   為了使用 HTTP 與 SERVER 溝通，測試用的 network_security_config.xml 需要修改 domain 成自己的 IPv4：
+
+   **檔案位置**：`app/src/debug/res/xml/network_security_config.xml`
+
+   將 domain 修改為您電腦的 IPv4 位址：
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <network-security-config>
+       <!-- 允許明文 HTTP -->
+       <domain-config cleartextTrafficPermitted="true">
+           <domain includeSubdomains="true">您的IPv4位址</domain>
+       </domain-config>
+   </network-security-config>
+   ```
+
+   將 `您的IPv4位址` 替換成您實際的 IPv4 位址（例如：`192.168.1.100`）。
+
+   **如何查詢您的 IPv4 位址：**
+   - **Windows**：在命令提示字元執行 `ipconfig`
+   - **Linux/Mac**：執行 `ifconfig` 或 `ip addr`
+   - **WSL**：執行 `ip addr show eth0` 或查看 Windows 主機 IP
+
+4. **確保網路可達**
    - 手機和電腦在同一個 Wi-Fi 網路
    - 防火牆允許連接埠 8080
 
