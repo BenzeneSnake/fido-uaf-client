@@ -306,10 +306,34 @@ This Android client must work together with the FIDO UAF Server:
    ```
 
 2. **Modify the server address in the app**
-    - If you're using a physical device, use your computer’s IP address instead of localhost.
+    - If you're using a physical device, use your computer's IP address instead of localhost.
     - Example：`http://1XX.XXX.X.XXX:8080`
 
-3. **Ensure network connectivity**
+3. **Configure Network Security (for HTTP communication)**
+
+   To allow HTTP communication with the server (for testing purposes), you need to modify the network security configuration:
+
+   **File location**: `app/src/debug/res/xml/network_security_config.xml`
+
+   Update the domain to your computer's IPv4 address:
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <network-security-config>
+       <!-- Allow cleartext HTTP -->
+       <domain-config cleartextTrafficPermitted="true">
+           <domain includeSubdomains="true">YOUR_IPV4_ADDRESS</domain>
+       </domain-config>
+   </network-security-config>
+   ```
+
+   Replace `YOUR_IPV4_ADDRESS` with your actual IPv4 address (e.g., `192.168.1.100`).
+
+   **How to find your IPv4 address:**
+   - **Windows**: Run `ipconfig` in Command Prompt
+   - **Linux/Mac**: Run `ifconfig` or `ip addr`
+   - **WSL**: Run `ip addr show eth0` or check Windows host IP
+
+4. **Ensure network connectivity**
     - The phone and computer must be on the same Wi-Fi network.
     - Make sure the firewall allows port 8080 connections.
 
