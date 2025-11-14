@@ -298,8 +298,8 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         if (id == R.id.action_settings) {
-            startActivity(new Intent(
-                    "org.ebayopensource.fidouafclient.SettingsActivity"));
+            // 修復：使用 Class 方式啟動 SettingsActivity，相容 Android 15，避免 non-exported 錯誤
+            Intent intent = new Intent(this, SettingsActivity.class);
         }
         if (id == R.id.action_save_message) {
             SaveMessageDialog.show(this, uafMsg);
