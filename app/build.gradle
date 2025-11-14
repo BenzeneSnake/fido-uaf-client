@@ -21,7 +21,7 @@ android {
     defaultConfig {
         applicationId "org.ebayopensource.fidouafclient"  // App 在 Google Play 上的唯一 ID
 
-        minSdk 23       // 最低支援 Android 6.0（Marshmallow）
+        minSdk 24       // 最低支援 Android 6.0（Marshmallow）
         targetSdk 34    // 目標 Android 14
 
         versionCode 1           // App 版本號碼（每次發布遞增）
@@ -96,6 +96,12 @@ dependencies {
 
     // Apache Commons Codec - 編碼/解碼工具
     implementation 'commons-codec:commons-codec:1.16.0'  // 從 1.10 更新到 1.16.0
+
+    // ------------------------------------------------------------
+    // HTTP 客戶端
+    // ------------------------------------------------------------
+    // OkHttp - 現代化的 HTTP 客戶端
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 
     // ------------------------------------------------------------
     // 測試相關（可選）
