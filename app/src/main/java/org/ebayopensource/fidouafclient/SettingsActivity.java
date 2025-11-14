@@ -55,17 +55,35 @@ public class SettingsActivity extends Activity {
         serverEndpoint = (EditText) findViewById(R.id.server);
         username = (EditText) findViewById(R.id.username);
         msgs = (TextView) findViewById(R.id.settingsMsgs);
+        // 確保有預設值，避免 null crash
+        if (Endpoints.getServer() == null || Endpoints.getServer().isEmpty()) {
+            Endpoints.setDefaults();
+        }
         populate();
     }
     
 	private void populate() {
-		this.username.setText(Preferences.getSettingsParam("username"));
-		this.serverEndpoint.setText(Endpoints.getServer());
-		this.authReqEndpoint.setText(Endpoints.getAuthRequestPath());
-		this.authResEndpoint.setText(Endpoints.getAuthResponsePath());
-		this.regReqEndpoint.setText(Endpoints.getRegRequestPath());
-		this.regResEndpoint.setText(Endpoints.getRegResponsePath());
-		this.dereqEndpoint.setText(Endpoints.getDeregPath());
+		// 安全地設置文字，避免 null 導致 crash
+		String username = Preferences.getSettingsParam("username");
+		this.username.setText(username != null ? username : "");
+
+		String server = Endpoints.getServer();
+		this.serverEndpoint.setText(server != null ? server : "");
+
+		String authReq = Endpoints.getAuthRequestPath();
+		this.authReqEndpoint.setText(authReq != null ? authReq : "");
+
+		String authRes = Endpoints.getAuthResponsePath();
+		this.authResEndpoint.setText(authRes != null ? authRes : "");
+
+		String regReq = Endpoints.getRegRequestPath();
+		this.regReqEndpoint.setText(regReq != null ? regReq : "");
+
+		String regRes = Endpoints.getRegResponsePath();
+		this.regResEndpoint.setText(regRes != null ? regRes : "");
+
+		String dereg = Endpoints.getDeregPath();
+		this.dereqEndpoint.setText(dereg != null ? dereg : "");
 	}
 
 	public void back(View view) {

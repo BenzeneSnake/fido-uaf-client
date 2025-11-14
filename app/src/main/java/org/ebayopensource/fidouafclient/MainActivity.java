@@ -138,6 +138,10 @@ public class MainActivity extends Activity {
         return;
     }
 
+    /**
+     * 把使用者的註冊請求傳給 FIDO 客戶端，讓它處理真正的公鑰註冊。
+     * @param view
+     */
     public void regRequest(View view) {
 //        String username = Preferences.getSettingsParam("username");
         String username = ((EditText) findViewById(R.id.editTextName)).getText().toString();
@@ -250,13 +254,24 @@ public class MainActivity extends Activity {
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, data=%s",
-                requestCode, resultCode, new ArrayList<>(data.getExtras().keySet())));
-
+        // 修復：先檢查 data 是否為 null，再記錄日誌
         if (data == null){
+            Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, data=null",
+                    requestCode, resultCode));
             msg.setText("UAF Client didn't return any data. resultCode="+resultCode);
             return;
         }
+
+        // 修復：檢查 getExtras() 是否為 null
+        if (data.getExtras() == null) {
+            Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, extras=null",
+                    requestCode, resultCode));
+            msg.setText("UAF Client didn't return any extras. resultCode="+resultCode);
+            return;
+        }
+
+        Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, data=%s",
+                requestCode, resultCode, new ArrayList<>(data.getExtras().keySet())));
 
         Object[] array = data.getExtras().keySet().toArray();
         StringBuffer extras = new StringBuffer();
@@ -395,8 +410,8 @@ public class MainActivity extends Activity {
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         if (id == R.id.action_settings) {
-            startActivity(new Intent(
-                    "org.ebayopensource.fidouafclient.SettingsActivity"));
+            // 修復：使用 Class 方式啟動 SettingsActivity，相容 Android 15，避免 non-exported 錯誤
+            startActivity(new Intent(this, SettingsActivity.class));
         }
         if (id == R.id.action_discover) {
             info(this.getWindow().getCurrentFocus());
