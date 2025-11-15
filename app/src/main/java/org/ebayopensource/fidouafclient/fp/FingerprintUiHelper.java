@@ -70,7 +70,11 @@ public class FingerprintUiHelper extends FingerprintManager.AuthenticationCallba
         // noinspection ResourceType
         mFingerprintManager
                 .authenticate(cryptoObject, mCancellationSignal, 0 /* flags */, this, null);
-        mIcon.setImageResource(R.drawable.ic_fp_40px);
+
+        // Android 9.0+: mIcon 可能為 null（不顯示 UI）
+        if (mIcon != null) {
+            mIcon.setImageResource(R.drawable.ic_fp_40px);
+        }
     }
 
     public void stopListening() {
@@ -85,12 +89,17 @@ public class FingerprintUiHelper extends FingerprintManager.AuthenticationCallba
     public void onAuthenticationError(int errMsgId, CharSequence errString) {
         if (!mSelfCancelled) {
             showError(errString);
-            mIcon.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mCallback.onError();
-                }
-            }, ERROR_TIMEOUT_MILLIS);
+            if (mIcon != null) {
+                mIcon.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mCallback.onError();
+                    }
+                }, ERROR_TIMEOUT_MILLIS);
+            } else {
+                // Android 9.0+: 沒有 UI，直接回調
+                mCallback.onError();
+            }
         }
     }
 
@@ -101,27 +110,42 @@ public class FingerprintUiHelper extends FingerprintManager.AuthenticationCallba
 
     @Override
     public void onAuthenticationFailed() {
-        showError(mIcon.getResources().getString(
-                R.string.fingerprint_not_recognized));
+        if (mIcon != null) {
+            showError(mIcon.getResources().getString(
+                    R.string.fingerprint_not_recognized));
+        }
     }
 
     @Override
     public void onAuthenticationSucceeded(final FingerprintManager.AuthenticationResult result) {
-        mErrorTextView.removeCallbacks(mResetErrorTextRunnable);
-        mIcon.setImageResource(R.drawable.ic_fingerprint_success);
-        mErrorTextView.setTextColor(
-                mErrorTextView.getResources().getColor(R.color.success_color, null));
-        mErrorTextView.setText(
-                mErrorTextView.getResources().getString(R.string.fingerprint_success));
-        mIcon.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mCallback.onAuthenticated(result.getCryptoObject());
-            }
-        }, SUCCESS_DELAY_MILLIS);
+        if (mErrorTextView != null) {
+            mErrorTextView.removeCallbacks(mResetErrorTextRunnable);
+        }
+
+        if (mIcon != null) {
+            mIcon.setImageResource(R.drawable.ic_fingerprint_success);
+            mErrorTextView.setTextColor(
+                    mErrorTextView.getResources().getColor(R.color.success_color, null));
+            mErrorTextView.setText(
+                    mErrorTextView.getResources().getString(R.string.fingerprint_success));
+            mIcon.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mCallback.onAuthenticated(result.getCryptoObject());
+                }
+            }, SUCCESS_DELAY_MILLIS);
+        } else {
+            // Android 9.0+: 沒有 UI，直接回調
+            mCallback.onAuthenticated(result.getCryptoObject());
+        }
     }
 
     private void showError(CharSequence error) {
+        if (mIcon == null || mErrorTextView == null) {
+            // Android 9.0+: 沒有 UI，跳過
+            return;
+        }
+
         mIcon.setImageResource(R.drawable.ic_fingerprint_error);
         mErrorTextView.setText(error);
         mErrorTextView.setTextColor(
@@ -133,11 +157,13 @@ public class FingerprintUiHelper extends FingerprintManager.AuthenticationCallba
     private Runnable mResetErrorTextRunnable = new Runnable() {
         @Override
         public void run() {
-            mErrorTextView.setTextColor(
-                    mErrorTextView.getResources().getColor(R.color.hint_color, null));
-            mErrorTextView.setText(
-                    mErrorTextView.getResources().getString(R.string.fingerprint_hint));
-            mIcon.setImageResource(R.drawable.ic_fp_40px);
+            if (mErrorTextView != null && mIcon != null) {
+                mErrorTextView.setTextColor(
+                        mErrorTextView.getResources().getColor(R.color.hint_color, null));
+                mErrorTextView.setText(
+                        mErrorTextView.getResources().getString(R.string.fingerprint_hint));
+                mIcon.setImageResource(R.drawable.ic_fp_40px);
+            }
         }
     };
 

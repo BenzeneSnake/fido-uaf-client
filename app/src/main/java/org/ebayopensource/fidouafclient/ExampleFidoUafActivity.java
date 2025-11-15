@@ -16,15 +16,18 @@
 
 package org.ebayopensource.fidouafclient;
 
-import android.app.Activity;
 import android.app.KeyguardManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.hardware.fingerprint.FingerprintManager;
 import android.os.Build;
 import android.os.Bundle;
+
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.biometric.BiometricPrompt;
+
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,8 +43,8 @@ import org.ebayopensource.fido.uaf.crypto.FidoSigner;
 import org.ebayopensource.fido.uaf.crypto.FidoSignerAndroidM;
 import org.ebayopensource.fido.uaf.crypto.FidoSignerBC;
 import org.ebayopensource.fido.uaf.msg.RegistrationRequest;
-import org.ebayopensource.fidouafclient.fp.FingerprintAuthProcessor;
-import org.ebayopensource.fidouafclient.fp.FingerprintAuthenticationDialogFragment;
+import org.ebayopensource.fidouafclient.fp.BiometricAuthListener;
+import org.ebayopensource.fidouafclient.fp.BiometricPromptHelper;
 import org.ebayopensource.fidouafclient.util.Preferences;
 import org.json.JSONObject;
 
@@ -55,7 +58,8 @@ import java.security.Signature;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ExampleFidoUafActivity extends Activity implements FingerprintAuthProcessor {
+public class ExampleFidoUafActivity extends AppCompatActivity
+        implements BiometricAuthListener {
 
     private static final String TAG = ExampleFidoUafActivity.class.getSimpleName();
 
@@ -69,17 +73,16 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
     private KeyguardManager keyguardManager;
     private int REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS = 1;
 
-    private static final String DIALOG_FRAGMENT_TAG = "fpDialogFragment";
-
     private String authReq;
-
     private FidoKeystore fidoKeystore;
+    private BiometricPromptHelper biometricPromptHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         fidoKeystore = FidoKeystore.createKeyStore(getApplicationContext());
+        biometricPromptHelper = new BiometricPromptHelper(this, this);
 
         keyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
         Bundle extras = this.getIntent().getExtras();
@@ -133,22 +136,21 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
                 String username = Preferences.getSettingsParam("username");
                 Log.d(TAG, "username: " + username);
 
+                // 生物識別認證（Android 6.0+）
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    if (supportsFingerprintAuth()) {
-                        startFingerprintAuth();
+                    if (BiometricPromptHelper.isBiometricAvailable(this)) {
+                        startBiometricAuth();
                     } else {
                         // assume already authenticated via confirmCredentials()
                         FidoSigner fidoSigner = createFidoSigner();
-                        // fido signer doesn't need key pair, handled internally
                         String authMsg = authOp.auth(authReq, fidoSigner, null);
-
                         returnResultAndFinish(authMsg);
                     }
                 } else {
+                    // Android 6.0 以下，使用 BouncyCastle
                     FidoSigner fidoSigner = new FidoSignerBC();
                     KeyPair keyPair = fidoKeystore.getKeyPair(username);
                     msg = authOp.auth(authReq, fidoSigner, keyPair);
-
                     returnResultAndFinish(msg);
                 }
             } else if (inMsg.contains("\"Dereg\"")) {
@@ -157,7 +159,7 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
                 msg = inUafOperationMsg;
                 returnResultAndFinish(msg);
             }
-        } catch (GeneralSecurityException | SecurityException | IOException e) {
+        } catch (GeneralSecurityException | SecurityException e) {
             String errorMessage = "Error : " + e.getMessage();
             Log.e(TAG, errorMessage, e);
             finishWithError(errorMessage);
@@ -173,21 +175,18 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
         return new FidoSignerAndroidM(signature);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private void startFingerprintAuth() throws GeneralSecurityException, IOException {
+    /**
+     * 使用 BiometricPrompt 進行生物識別認證
+     * 支援 Android 6.0+，統一處理指紋、臉部辨識等
+     */
+    private void startBiometricAuth() throws GeneralSecurityException {
+        // 準備簽名物件（用於 FIDO UAF）
         Signature signature = Signature.getInstance("SHA256withECDSA");
         PrivateKey privateKey = fidoKeystore.getKeyPair(Preferences.getSettingsParam("username")).getPrivate();
         signature.initSign(privateKey);
 
-        FingerprintAuthenticationDialogFragment fragment
-                = new FingerprintAuthenticationDialogFragment();
-        FingerprintManager.CryptoObject cryptoObj = new FingerprintManager.CryptoObject(signature);
-        fragment.setCryptoObject(cryptoObj);
-        fragment.setStage(
-                FingerprintAuthenticationDialogFragment.Stage.FINGERPRINT);
-
-        Log.d(TAG, "Showing fragment: " + fragment);
-        fragment.show(getFragmentManager(), DIALOG_FRAGMENT_TAG);
+        // Activity 實現了 BiometricAuthListener，回調會自動到 onAuthSuccess/onAuthFailed/onAuthError
+        biometricPromptHelper.authenticate(signature);
     }
 
     private void returnResultAndFinish(String msg) {
@@ -199,15 +198,6 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
         finish();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    @Override
-    public void processAuthentication(FingerprintManager.CryptoObject cryptObj) {
-        FidoSigner fidoSigner = new FidoSignerAndroidM(cryptObj.getSignature());
-        // fido signer doesn't need key pair, handled internally
-        String msg = authOp.auth(authReq, fidoSigner, null);
-
-        returnResultAndFinish(msg);
-    }
 
     private static boolean isAndroidM() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -217,20 +207,8 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
         return false;
     }
 
-    private boolean supportsFingerprintAuth() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            FingerprintManager fingerprintManager = getSystemService(FingerprintManager.class);
-
-            // noinspection ResourceType
-            return fingerprintManager.isHardwareDetected()
-                    && fingerprintManager.hasEnrolledFingerprints();
-        }
-
-        return false;
-     }
-
     public void proceed(View view) {
-        if (isAuthOp() && isAndroidM() && supportsFingerprintAuth()) {
+        if (isAuthOp() && isAndroidM() && BiometricPromptHelper.isBiometricAvailable(this)) {
             // Android M does fingerprint auth internally, so we don't call confirmDeviceCredential()
             processOpAndFinish();
         } else {
@@ -258,7 +236,10 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
         }
     }
 
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS) {
             // Challenge completed, proceed with using cipher
             if (resultCode == RESULT_OK) {
@@ -317,6 +298,49 @@ public class ExampleFidoUafActivity extends Activity implements FingerprintAuthP
             logger.log(Level.WARNING, "Input message is invalid!", e);
             return "";
         }
+    }
 
+    // ============================================================
+    // BiometricAuthListener interface implementation
+    // ============================================================
+
+    @Override
+    public void onAuthSuccess(Signature signature) {
+        Log.d(TAG, "Biometric authentication succeeded");
+
+        try {
+            //  認證成功，使用已認證的 Signature（帶有認證令牌）進行 FIDO UAF 簽名
+            FidoSigner fidoSigner = new FidoSignerAndroidM(signature);
+            final String authMsg = authOp.auth(authReq, fidoSigner, null);
+
+            // Show Success Dialog
+            new AlertDialog.Builder(this)
+                    .setTitle("Success")
+                    .setMessage("Biometric authentication succeeded！")
+                    .setPositiveButton("yes", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            returnResultAndFinish(authMsg);
+                        }
+                    })
+                    .setCancelable(false)  // 不允許點擊外部關閉
+                    .show();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing authentication", e);
+            finishWithError("Authentication processing error: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void onAuthFailed() {
+        Log.w(TAG, "Biometric authentication failed");
+        finishWithError("Authentication failed");
+    }
+
+    @Override
+    public void onAuthError(int errorCode, CharSequence errString) {
+        Log.e(TAG, "Biometric authentication error: " + errorCode + " - " + errString);
+        finishWithError("Authentication error: " + errString.toString());
     }
 }
