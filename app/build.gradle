@@ -21,7 +21,7 @@ android {
     defaultConfig {
         applicationId "org.ebayopensource.fidouafclient"  // App 在 Google Play 上的唯一 ID
 
-        minSdk 24       // 最低支援 Android 6.0（Marshmallow）
+        minSdk 24       // 最低支援 Android 7.0（Marshmallow）
         targetSdk 34    // 目標 Android 14
 
         versionCode 1           // App 版本號碼（每次發布遞增）
@@ -82,6 +82,9 @@ dependencies {
     // 注意：原本使用的 support-v4 已棄用，改用 AndroidX
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
+
+    // BiometricPrompt - 統一的生物識別 API（支援 Android 6.0+）
+    implementation 'androidx.biometric:biometric:1.1.0'
 
     // ------------------------------------------------------------
     // JSON 處理

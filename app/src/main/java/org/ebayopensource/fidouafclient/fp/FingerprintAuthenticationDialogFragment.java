@@ -22,7 +22,10 @@ import android.content.Context;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Build;
 import android.os.Bundle;
+
 import androidx.annotation.RequiresApi;
+import androidx.biometric.BiometricPrompt;
+
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +33,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import org.ebayopensource.fido.uaf.crypto.FidoSigner;
+import org.ebayopensource.fido.uaf.crypto.FidoSignerAndroidM;
 import org.ebayopensource.fidouafclient.R;
 
 /**
@@ -56,12 +61,36 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
 
         // Do not create a new Fragment when the Activity is re-created such as orientation changes.
         setRetainInstance(true);
-        setStyle(DialogFragment.STYLE_NORMAL, android.R.style.Theme_Material_Light_Dialog);
+
+        // Android 9.0+ 系統會自動顯示生物識別對話框，不需要自定義對話框 UI
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            setStyle(DialogFragment.STYLE_NO_FRAME, android.R.style.Theme_Translucent_NoTitleBar);
+        } else {
+            setStyle(DialogFragment.STYLE_NORMAL, android.R.style.Theme_Material_Light_Dialog);
+        }
     }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        // Android 9.0+ 系統會自動顯示生物識別對話框，只需要處理認證邏輯，不顯示 UI
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            View emptyView = new View(mActivity);
+
+            // 仍然需要 FingerprintUiHelper 來處理認證，但不需要顯示 UI 元素
+            mFingerprintUiHelper = new FingerprintUiHelper(
+                    mActivity.getSystemService(FingerprintManager.class),
+                    null, null, this);
+
+            if (!mFingerprintUiHelper.isFingerprintAuthAvailable()) {
+                dismiss();
+            }
+
+            return emptyView;
+        }
+
+        // Android 6.0-8.1: 顯示自定義對話框
         getDialog().setTitle(getString(R.string.authenticate));
         View v = inflater.inflate(R.layout.fingerprint_dialog_container, container, false);
         mCancelButton = (Button) v.findViewById(R.id.cancel_button);
@@ -155,7 +184,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
     public void onAuthenticated(FingerprintManager.CryptoObject cryptObj) {
         // Callback from FingerprintUiHelper. Let the activity know that authentication was
         // successful.
-        ((FingerprintAuthProcessor)mActivity).processAuthentication(cryptObj);
+        ((FingerprintAuthProcessor) mActivity).processAuthentication(cryptObj);
         dismiss();
     }
 
