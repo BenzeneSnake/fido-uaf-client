@@ -16,7 +16,8 @@
 
 package org.ebayopensource.fidouafclient;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
+
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -54,7 +55,7 @@ import java.util.logging.Logger;
 
 import static android.R.id.message;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private static final int REG_ACTIVITY_RES_3 = 3;
     private static final int AUTH_ACTIVITY_RES_5 = 5;
@@ -97,12 +98,12 @@ public class MainActivity extends Activity {
 
     }
 
-    private void findFields (){
+    private void findFields() {
         msg = (TextView) findViewById(R.id.textViewMsg);
         title = (TextView) findViewById(R.id.textViewTitle);
         username = (TextView) findViewById(R.id.textUsername);
     }
-	
+
     public void facetIDRequest(View view) {
         String facetIDval = "";
         try {
@@ -140,12 +141,13 @@ public class MainActivity extends Activity {
 
     /**
      * 把使用者的註冊請求傳給 FIDO 客戶端，讓它處理真正的公鑰註冊。
+     *
      * @param view
      */
     public void regRequest(View view) {
 //        String username = Preferences.getSettingsParam("username");
         String username = ((EditText) findViewById(R.id.editTextName)).getText().toString();
-        if (username.equals ("")) {
+        if (username.isEmpty()) {
             msg.setText("Username cannot be empty.");
             return;
         }
@@ -154,6 +156,7 @@ public class MainActivity extends Activity {
 
         title.setText("Registration operation executed, Username = " + username);
 
+        // ExampleFidoUafActivity 接收 Intent
         Intent i = new Intent("org.fidoalliance.intent.FIDO_OPERATION");
         i.addCategory("android.intent.category.DEFAULT");
 
@@ -221,7 +224,7 @@ public class MainActivity extends Activity {
         } catch (NameNotFoundException e) {
             e.printStackTrace();
         }
-        String authRequest = auth.getUafMsgRequest(facetID,this,false);
+        String authRequest = auth.getUafMsgRequest(facetID, this, false);
         Intent i = new Intent("org.fidoalliance.intent.FIDO_OPERATION");
         i.addCategory("android.intent.category.DEFAULT");
         i.setType("application/fido.uaf_client+json");
@@ -241,7 +244,7 @@ public class MainActivity extends Activity {
         } catch (NameNotFoundException e) {
             e.printStackTrace();
         }
-        String authRequest = auth.getUafMsgRequest(facetID,this,true);
+        String authRequest = auth.getUafMsgRequest(facetID, this, true);
         Intent i = new Intent("org.fidoalliance.intent.FIDO_OPERATION");
         i.addCategory("android.intent.category.DEFAULT");
         i.setType("application/fido.uaf_client+json");
@@ -255,10 +258,11 @@ public class MainActivity extends Activity {
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // 修復：先檢查 data 是否為 null，再記錄日誌
-        if (data == null){
+        super.onActivityResult(requestCode, resultCode, data);
+        if (data == null) {
             Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, data=null",
                     requestCode, resultCode));
-            msg.setText("UAF Client didn't return any data. resultCode="+resultCode);
+            msg.setText("UAF Client didn't return any data. resultCode=" + resultCode);
             return;
         }
 
@@ -266,7 +270,7 @@ public class MainActivity extends Activity {
         if (data.getExtras() == null) {
             Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, extras=null",
                     requestCode, resultCode));
-            msg.setText("UAF Client didn't return any extras. resultCode="+resultCode);
+            msg.setText("UAF Client didn't return any extras. resultCode=" + resultCode);
             return;
         }
 
@@ -275,13 +279,16 @@ public class MainActivity extends Activity {
 
         Object[] array = data.getExtras().keySet().toArray();
         StringBuffer extras = new StringBuffer();
-        extras.append("[resultCode="+resultCode+"]");
+        if (RESULT_OK == resultCode) {
+            extras.append("[result=" + "SUCCESS" + "]");
+        }
+        extras.append("[resultCode=" + resultCode + "]");
         for (int i = 0; i < array.length; i++) {
             extras.append("[" + array[i] + "=");
 //            if ("message".equals(array[i])) {
 //                continue;
 //            }
-            extras.append(""+data.getExtras().get((String) array[i]) + "]");
+            extras.append("" + data.getExtras().get((String) array[i]) + "]");
         }
         title.setText("extras=" + extras.toString());
 
@@ -326,8 +333,8 @@ public class MainActivity extends Activity {
                     title.setText("extras=" + extras.toString());
                     msg.setText(res);
                     username.setText(Preferences.getSettingsParam("username"));
-                } catch (Exception e){
-                    msg.setText("Registration operation failed.\n"+e);
+                } catch (Exception e) {
+                    msg.setText("Registration operation failed.\n" + e);
                 }
             }
             if (resultCode == RESULT_CANCELED) {
