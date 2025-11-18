@@ -16,8 +16,12 @@
 
 package org.ebayopensource.fidouafclient;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -51,12 +55,34 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 import static android.R.id.message;
 import static org.ebayopensource.fidouafclient.callback.UAFRequestCode.getDescriptionByCode;
 
 public class MainActivity extends AppCompatActivity {
+
+
+    private final ActivityResultLauncher<Intent> infoLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    this::handleInfoResponse
+            );
+    private final ActivityResultLauncher<Intent> regLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    this::handleRegResponse
+            );
+
+    private final ActivityResultLauncher<Intent> authLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    this::handleAuthResponse
+            );
+
+    private final ActivityResultLauncher<Intent> deregLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    this::handleDeregResponse
+            );
+
 
     private static final int REG_ACTIVITY_RES_3 = 3;
     private static final int AUTH_ACTIVITY_RES_5 = 5;
@@ -136,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
         data.putString("UAFIntentType", UAFIntentType.DISCOVER.name());
         i.putExtras(data);
 //		i.setComponent(new ComponentName(queryIntentActivities.get(0).activityInfo.packageName, queryIntentActivities.get(0).activityInfo.name));
-        startActivityForResult(i, 1);
+        infoLauncher.launch(i);
         return;
     }
 
@@ -183,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
         i.putExtras(data);
 
 //		i.setComponent(new ComponentName(queryIntentActivities.get(0).activityInfo.packageName, queryIntentActivities.get(0).activityInfo.name));
-        startActivityForResult(i, REG_ACTIVITY_RES_3);
+        regLauncher.launch(i);
     }
 
     private String getFacetID(PackageInfo paramPackageInfo) {
@@ -214,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
         data.putString("UAFIntentType", "UAF_OPERATION");
         data.putString("channelBindings", uafMessage);
         i.putExtras(data);
-        startActivityForResult(i, DEREG_ACTIVITY_RES_4);
+        deregLauncher.launch(i);
     }
 
     public void authRequest(View view) {
@@ -234,7 +260,7 @@ public class MainActivity extends AppCompatActivity {
         data.putString("UAFIntentType", "UAF_OPERATION");
         data.putString("channelBindings", authRequest);
         i.putExtras(data);
-        startActivityForResult(i, AUTH_ACTIVITY_RES_5);
+        authLauncher.launch(i);
     }
 
     public void trxRequest(View view) {
@@ -254,134 +280,114 @@ public class MainActivity extends AppCompatActivity {
         data.putString("UAFIntentType", "UAF_OPERATION");
         data.putString("channelBindings", authRequest);
         i.putExtras(data);
-        startActivityForResult(i, AUTH_ACTIVITY_RES_5);
+        authLauncher.launch(i);
     }
 
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // 修復：先檢查 data 是否為 null，再記錄日誌
-        super.onActivityResult(requestCode, resultCode, data);
-        if (data == null) {
-            Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, data=null",
-                    requestCode, resultCode));
-            msg.setText("UAF Client didn't return any data. resultCode=" + resultCode);
+    protected void handleInfoResponse(ActivityResult result) {
+        if (isActivityResultValid(result)) {
             return;
         }
-
-        // 修復：檢查 getExtras() 是否為 null
-        if (data.getExtras() == null) {
-            Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, extras=null",
-                    requestCode, resultCode));
-            msg.setText("UAF Client didn't return any extras. resultCode=" + resultCode);
-            return;
-        }
-
-        Log.d(TAG, String.format("onActivityResult: requestCode=%d, resultCode=%d, data=%s",
-                requestCode, resultCode, new ArrayList<>(data.getExtras().keySet())));
-
-        Object[] array = data.getExtras().keySet().toArray();
-
-        StringBuffer extras = builExtrasMessage(requestCode, resultCode);
-
-        for (int i = 0; i < array.length; i++) {
-            extras.append("[" + array[i] + "=");
-//            if ("message".equals(array[i])) {
-//                continue;
-//            }
-            extras.append("" + data.getExtras().get((String) array[i]) + "]");
-        }
+        Intent data = result.getData();
+        StringBuffer extras = buildExtrasMessage(result.getResultCode(), 1, data);
         title.setText("extras=" + extras.toString());
+        if (result.getResultCode() == Activity.RESULT_OK) {
+            String asmResponse = data.getStringExtra("message");
+            Log.d(TAG, "UAF message: " + asmResponse);
 
-        if (requestCode == 1) {
-            if (resultCode == RESULT_OK) {
-                String asmResponse = data.getStringExtra("message");
-                Log.d(TAG, "UAF message: " + asmResponse);
-
-                String discoveryData = data.getStringExtra("discoveryData");
-                msg.setText("{message}" + asmResponse + "{discoveryData}" + discoveryData);
-                //Prepare ReqResponse
-                //post to server
-            }
-            if (resultCode == RESULT_CANCELED) {
-                userCancelled();
-            }
+            String discoveryData = data.getStringExtra("discoveryData");
+            msg.setText("{message}" + asmResponse + "{discoveryData}" + discoveryData);
+            //Prepare ReqResponse
+            //post to server
         }
-        if (requestCode == 2) {
-            if (resultCode == RESULT_OK) {
-                String asmResponse = data.getStringExtra("message");
-                Log.d(TAG, "UAF message: " + asmResponse);
-                msg.setText(asmResponse);
-                dereg.recordKeyId(asmResponse);
+        if (result.getResultCode() == Activity.RESULT_CANCELED) {
+            userCancelled();
+        }
+    }
+
+    protected void handleRegResponse(ActivityResult result) {
+        if (isActivityResultValid(result)) {
+            return;
+        }
+        Intent data = result.getData();
+        StringBuffer extras = buildExtrasMessage(result.getResultCode(), REG_ACTIVITY_RES_3, data);
+        title.setText("extras=" + extras.toString());
+        if (result.getResultCode() == Activity.RESULT_OK) {
+            try {
+                String uafMessage = data.getStringExtra("message");
+                Log.d(TAG, "UAF message: " + message);
+                msg.setText(uafMessage);
                 //Prepare ReqResponse
                 //post to server
-            }
-            if (resultCode == RESULT_CANCELED) {
-                userCancelled();
-            }
-        } else if (requestCode == REG_ACTIVITY_RES_3) {
-            if (resultCode == RESULT_OK) {
-                try {
-                    String uafMessage = data.getStringExtra("message");
-                    Log.d(TAG, "UAF message: " + message);
-                    msg.setText(uafMessage);
-                    //Prepare ReqResponse
-                    //post to server
-                    //	            String res = reg.sendRegResponse(asmResponse);
-                    String res = reg.clientSendRegResponse(uafMessage);
-                    setContentView(R.layout.activity_registered);
-                    findFields();
-                    title.setText("extras=" + extras.toString());
-                    msg.setText(res);
-                    username.setText(Preferences.getSettingsParam("username"));
-                } catch (Exception e) {
-                    msg.setText("Registration operation failed.\n" + e);
-                }
-            }
-            if (resultCode == RESULT_CANCELED) {
-                userCancelled();
-            }
-        } else if (requestCode == DEREG_ACTIVITY_RES_4) {
-            if (resultCode == RESULT_OK) {
-                Preferences.setSettingsParam("keyID", "");
-                Preferences.setSettingsParam("username", "");
-                setContentView(R.layout.activity_main);
+                //	            String res = reg.sendRegResponse(asmResponse);
+                String res = reg.clientSendRegResponse(uafMessage);
+                setContentView(R.layout.activity_registered);
                 findFields();
                 title.setText("extras=" + extras.toString());
-                String message = data.getStringExtra("message");
-                Log.d(TAG, String.format("UAF message: [%s]", message));
-                if (message != null) {
-                    String out = "Dereg done. Client msg=" + message;
-                    out = out + ". Sent=" + dereg.clientSendDeregResponse(message);
-                    msg.setText(out);
-                } else {
-                    String deregMsg = Preferences.getSettingsParam("deregMsg");
-                    String out = "Dereg done. Client msg was empty. Dereg msg = " + deregMsg;
-                    out = out + ". Response=" + dereg.post(deregMsg);
-                    msg.setText(out);
-
-                }
-
-            }
-            if (resultCode == RESULT_CANCELED) {
-                userCancelled();
-            }
-        } else if (requestCode == AUTH_ACTIVITY_RES_5) {
-            if (resultCode == RESULT_OK) {
-                String uafMessage = data.getStringExtra("message");
-                Log.d(TAG, "UAF message: " + uafMessage);
-                if (uafMessage != null) {
-                    msg.setText(uafMessage);
-                    //Prepare ReqResponse
-                    //post to server
-//	            String res = auth.sendAuthResponse(asmResponse);
-                    String res = auth.clientSendResponse(uafMessage);
-                    msg.setText("\n" + res);
-                }
-            }
-            if (resultCode == RESULT_CANCELED) {
-                userCancelled();
+                msg.setText(res);
+                username.setText(Preferences.getSettingsParam("username"));
+            } catch (Exception e) {
+                msg.setText("Registration operation failed.\n" + e);
             }
         }
+        if (result.getResultCode() == RESULT_CANCELED) {
+            userCancelled();
+        }
+    }
 
+    protected void handleAuthResponse(ActivityResult result) {
+        if (isActivityResultValid(result)) {
+            return;
+        }
+        Intent data = result.getData();
+        StringBuffer extras = buildExtrasMessage(result.getResultCode(), AUTH_ACTIVITY_RES_5, data);
+        title.setText("extras=" + extras.toString());
+        if (result.getResultCode() == Activity.RESULT_OK) {
+            String uafMessage = data.getStringExtra("message");
+            Log.d(TAG, "UAF message: " + uafMessage);
+            if (uafMessage != null) {
+                msg.setText(uafMessage);
+                //Prepare ReqResponse
+                //post to server
+//	            String res = auth.sendAuthResponse(asmResponse);
+                String res = auth.clientSendResponse(uafMessage);
+                msg.setText("\n" + res);
+            }
+        }
+        if (result.getResultCode() == Activity.RESULT_CANCELED) {
+            userCancelled();
+        }
+    }
+
+    protected void handleDeregResponse(ActivityResult result) {
+        if (isActivityResultValid(result)) {
+            return;
+        }
+        Intent data = result.getData();
+        StringBuffer extras = buildExtrasMessage(result.getResultCode(), DEREG_ACTIVITY_RES_4, data);
+        title.setText("extras=" + extras.toString());
+        if (result.getResultCode() == Activity.RESULT_OK) {
+            Preferences.setSettingsParam("keyID", "");
+            Preferences.setSettingsParam("username", "");
+            setContentView(R.layout.activity_main);
+            findFields();
+            title.setText("extras=" + extras.toString());
+            String message = data.getStringExtra("message");
+            Log.d(TAG, String.format("UAF message: [%s]", message));
+            if (message != null) {
+                String out = "Dereg done. Client msg=" + message;
+                out = out + ". Sent=" + dereg.clientSendDeregResponse(message);
+                msg.setText(out);
+            } else {
+                String deregMsg = Preferences.getSettingsParam("deregMsg");
+                String out = "Dereg done. Client msg was empty. Dereg msg = " + deregMsg;
+                out = out + ". Response=" + dereg.post(deregMsg);
+                msg.setText(out);
+
+            }
+        }
+        if (result.getResultCode() == RESULT_CANCELED) {
+            userCancelled();
+        }
     }
 
     private void appendField(StringBuffer sb, String key, Object value) {
@@ -395,17 +401,45 @@ public class MainActivity extends AppCompatActivity {
      * @param resultCode  resultCode
      * @return StringBuffer
      */
-    private StringBuffer builExtrasMessage(int requestCode, int resultCode) {
-        StringBuffer extras = new StringBuffer();
+    private StringBuffer buildExtrasMessage(int resultCode, int requestCode, Intent data) {
+        Object[] array = Objects.requireNonNull(data.getExtras()).keySet().toArray();
+        StringBuffer extrasSb = new StringBuffer();
         if (RESULT_OK == resultCode) {
-            extras.append("[result=SUCCESS]");
+            extrasSb.append("[result=SUCCESS]");
         }
-        appendField(extras, "requestCode", requestCode);
-        appendField(extras, "requestCodeDescription", getDescriptionByCode(requestCode));
-        appendField(extras, "resultCode", resultCode);
-        appendField(extras, "resultCodeDescription", getDescriptionByCode(resultCode));
+        appendField(extrasSb, "resultCode", resultCode);
+        appendField(extrasSb, "requestCode", requestCode);
+        appendField(extrasSb, "requestDescription", getDescriptionByCode(requestCode));
+        for (int i = 0; i < array.length; i++) {
+            extrasSb.append("[" + array[i] + "=");
+//            if ("message".equals(array[i])) {
+//                continue;
+//            }
+            extrasSb.append("" + data.getExtras().get((String) array[i]) + "]");
+        }
+        return extrasSb;
+    }
 
-        return extras;
+    private boolean isActivityResultValid(ActivityResult result) {
+        int resultCode = result.getResultCode();
+        Intent data = result.getData();
+
+        if (data == null) {
+            Log.d(TAG, String.format("ActivityResult callback: resultCode=%d, data=null", resultCode));
+            msg.setText("UAF Client didn't return any data. resultCode=" + resultCode);
+            return true;
+        }
+
+        // 修復：檢查 getExtras() 是否為 null
+        if (data.getExtras() == null) {
+            Log.d(TAG, String.format("ActivityResult callback: resultCode=%d, extras=null", resultCode));
+            msg.setText("UAF Client didn't return any extras. resultCode=" + resultCode);
+            return true;
+        }
+
+        Log.d(TAG, String.format("onActivityResult: resultCode=%d, data=%s",
+                resultCode, new ArrayList<>(data.getExtras().keySet())));
+        return false;
     }
 
     private void userCancelled() {
