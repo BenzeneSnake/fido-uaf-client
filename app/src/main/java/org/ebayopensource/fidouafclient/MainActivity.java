@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static android.R.id.message;
+import static org.ebayopensource.fidouafclient.callback.UAFRequestCode.getDescriptionByCode;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -278,11 +279,9 @@ public class MainActivity extends AppCompatActivity {
                 requestCode, resultCode, new ArrayList<>(data.getExtras().keySet())));
 
         Object[] array = data.getExtras().keySet().toArray();
-        StringBuffer extras = new StringBuffer();
-        if (RESULT_OK == resultCode) {
-            extras.append("[result=" + "SUCCESS" + "]");
-        }
-        extras.append("[resultCode=" + resultCode + "]");
+
+        StringBuffer extras = builExtrasMessage(requestCode, resultCode);
+
         for (int i = 0; i < array.length; i++) {
             extras.append("[" + array[i] + "=");
 //            if ("message".equals(array[i])) {
@@ -383,6 +382,30 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+    }
+
+    private void appendField(StringBuffer sb, String key, Object value) {
+        sb.append('[').append(key).append('=').append(value).append(']').append("\n");
+    }
+
+    /**
+     * 組成ExtrasMessage
+     *
+     * @param requestCode requestCode
+     * @param resultCode  resultCode
+     * @return StringBuffer
+     */
+    private StringBuffer builExtrasMessage(int requestCode, int resultCode) {
+        StringBuffer extras = new StringBuffer();
+        if (RESULT_OK == resultCode) {
+            extras.append("[result=SUCCESS]");
+        }
+        appendField(extras, "requestCode", requestCode);
+        appendField(extras, "requestCodeDescription", getDescriptionByCode(requestCode));
+        appendField(extras, "resultCode", resultCode);
+        appendField(extras, "resultCodeDescription", getDescriptionByCode(resultCode));
+
+        return extras;
     }
 
     private void userCancelled() {
