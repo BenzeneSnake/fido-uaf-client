@@ -42,9 +42,10 @@ public class Reg {
 
     public String register(String uafMsg) {
         logger.info("  [UAF][1]Reg  ");
-
+        //產生公司鑰
         KeyPair keyPair = fidoKeystore.generateKeyPair(username);
         logger.info("  [UAF][2]Reg - KeyPair generated" + keyPair);
+        //產生Assertion
         RegistrationRequestProcessor p = new RegistrationRequestProcessor();
         RegistrationResponse[] ret = new RegistrationResponse[1];
         RegistrationResponse regResponse = p.processRequest(getRegistrationRequest(uafMsg), keyPair);

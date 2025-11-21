@@ -83,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
                     this::handleDeregResponse
             );
 
-
+    //TODO:可移除
     private static final int REG_ACTIVITY_RES_3 = 3;
     private static final int AUTH_ACTIVITY_RES_5 = 5;
     private static final int DEREG_ACTIVITY_RES_4 = 4;

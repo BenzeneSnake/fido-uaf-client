@@ -29,48 +29,50 @@ public abstract class OpUtils {
 
     /**
      * Process Request Message
+     *
      * @param serverResponse Registration or Authentication request message
-     * @param facetId Application facet Id
-     * @param context Android Application Context
-     * @param isTrx always false for Registration messages. For Authentication it should be true only for transactions
+     * @param facetId        Application facet Id
+     * @param context        Android Application Context
+     * @param isTrx          always false for Registration messages. For Authentication it should be true only for transactions
      * @return uafProtocolMessage
      */
-    public static String getUafRequest(String serverResponse, String facetId, Context context, boolean isTrx){
+    public static String getUafRequest(String serverResponse, String facetId, Context context, boolean isTrx) {
         String msg = "{\"uafProtocolMessage\":\"";
         try {
             JSONArray requestArray = new JSONArray(serverResponse);
             String appID = ((JSONObject) requestArray.get(0)).getJSONObject("header").getString("appID");
-            Version version = (new Gson()).fromJson(((JSONObject) requestArray.get(0)).getJSONObject("header").getString("upv"),Version.class);
+            Version version = (new Gson()).fromJson(((JSONObject) requestArray.get(0)).getJSONObject("header").getString("upv"), Version.class);
             // If the AppID is null or empty, the client MUST set the AppID to be the FacetID of
             // the caller, and the operation may proceed without additional processing.
             if (appID == null || appID.isEmpty()) {
                 if (checkAppSignature(facetId, context)) {
                     ((JSONObject) requestArray.get(0)).getJSONObject("header").put("appID", facetId);
                 }
-            }else {
+            } else {
                 //If the AppID is not an HTTPS URL, and matches the FacetID of the caller, no additional
                 // processing is necessary and the operation may proceed.
                 if (!facetId.equals(appID)) {
                     // Begin to fetch the Trusted Facet List using the HTTP GET method
+                    // appID會是打向server的url http://xxx.xxx.xxx:8081/fidouaf/v1/public/uaf/facets
                     String trustedFacetsJson = getTrustedFacets(appID);
                     TrustedFacetsList trustedFacets = (new Gson()).fromJson(trustedFacetsJson, TrustedFacetsList.class);
-                    if (trustedFacets.getTrustedFacets() == null){
+                    if (trustedFacets.getTrustedFacets() == null) {
                         return getEmptyUafMsgRegRequest();
                     }
                     // After processing the trustedFacets entry of the correct version and removing
                     // any invalid entries, if the caller's FacetID matches one listed in ids,
                     // the operation is allowed.
-                    boolean facetFound = processTrustedFacetsList(trustedFacets,version,facetId);
-                    if ((!facetFound) || (!checkAppSignature(facetId, context))){
+                    boolean facetFound = processTrustedFacetsList(trustedFacets, version, facetId);
+                    if ((!facetFound) || (!checkAppSignature(facetId, context))) {
                         return getEmptyUafMsgRegRequest();
                     }
                 } else {
-                    if (! checkAppSignature(facetId, context)) {
+                    if (!checkAppSignature(facetId, context)) {
                         return getEmptyUafMsgRegRequest();
                     }
                 }
             }
-            if (isTrx){
+            if (isTrx) {
                 ((JSONObject) requestArray.get(0)).put("transaction", getTransaction());
             }
             JSONObject uafMsg = new JSONObject();
@@ -83,14 +85,14 @@ public abstract class OpUtils {
         return getEmptyUafMsgRegRequest();
     }
 
-    public static String getEmptyUafMsgRegRequest (){
+    public static String getEmptyUafMsgRegRequest() {
         String msg = "{\"uafProtocolMessage\":";
         msg = msg + "\"\"";
         msg = msg + "}";
         return msg;
     }
 
-    private static JSONArray getTransaction (){
+    private static JSONArray getTransaction() {
         JSONArray ret = new JSONArray();
         JSONObject trx = new JSONObject();
 
@@ -112,13 +114,14 @@ public abstract class OpUtils {
      * Entries in ids using the https:// scheme MUST contain only scheme, host and port components,
      * with an optional trailing /. Any path, query string, username/password, or fragment information
      * MUST be discarded.
+     *
      * @param trustedFacetsList
      * @param version
      * @param facetId
      * @return true if appID list contains facetId (current Android application's signature).
      */
-    private static boolean processTrustedFacetsList(TrustedFacetsList trustedFacetsList, Version version, String facetId){
-        for (TrustedFacets trustedFacets: trustedFacetsList.getTrustedFacets()){
+    private static boolean processTrustedFacetsList(TrustedFacetsList trustedFacetsList, Version version, String facetId) {
+        for (TrustedFacets trustedFacets : trustedFacetsList.getTrustedFacets()) {
             // select the one with the version matching that of the protocol message version
             if ((trustedFacets.getVersion().minor >= version.minor)
                     && (trustedFacets.getVersion().major <= version.major)) {
@@ -136,19 +139,20 @@ public abstract class OpUtils {
 
     /**
      * A double check about app signature that was passed by MainActivity as facetID.
+     *
      * @param facetId a string value composed by app hash. I.e. android:apk-key-hash:Lir5oIjf552K/XN4bTul0VS3GfM
      * @param context Application Context
      * @return true if the signature executed on runtime matches if signature sent by MainActivity
      */
-    private static boolean checkAppSignature(String facetId, Context context){
+    private static boolean checkAppSignature(String facetId, Context context) {
         try {
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES);
-            for (Signature sign: packageInfo.signatures) {
+            for (Signature sign : packageInfo.signatures) {
                 byte[] sB = sign.toByteArray();
                 MessageDigest messageDigest = MessageDigest.getInstance("SHA1");
                 messageDigest.update(sign.toByteArray());
                 String currentSignature = Base64.encodeToString(messageDigest.digest(), Base64.DEFAULT);
-                if (currentSignature.toLowerCase().contains(facetId.split(":")[2].toLowerCase())){
+                if (currentSignature.toLowerCase().contains(facetId.split(":")[2].toLowerCase())) {
                     return true;
                 }
             }
@@ -164,30 +168,30 @@ public abstract class OpUtils {
      * Fetches the Trusted Facet List using the HTTP GET method. The location MUST be identified with
      * an HTTPS URL. A Trusted Facet List MAY contain an unlimited number of entries, but clients MAY
      * truncate or decline to process large responses.
+     *
      * @param appID an identifier for a set of different Facets of a relying party's application.
      *              The AppID is a URL pointing to the TrustedFacets, i.e. list of FacetIDs related
      *              to this AppID.
-     * @return  Trusted Facets List
+     * @return Trusted Facets List
      */
-    private static String getTrustedFacets(String appID){
+    private static String getTrustedFacets(String appID) {
         //TODO The caching related HTTP header fields in the HTTP response (e.g. “Expires”) SHOULD be respected when fetching a Trusted Facets List.
         return Curl.getInSeparateThread(appID);
     }
 
-    public static String clientSendRegResponse (String uafMessage, String endpoint){
+    public static String clientSendRegResponse(String uafMessage, String endpoint) {
         String decoded = "";
         try {
-            JSONObject json = new JSONObject (uafMessage);
+            JSONObject json = new JSONObject(uafMessage);
             decoded = json.getString("uafProtocolMessage").replace("\\", "");
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
         String headerStr = "Content-Type:Application/json Accept:Application/json";
-        String serverResponse = Curl.postInSeparateThread(endpoint, headerStr , decoded);
+        String serverResponse = Curl.postInSeparateThread(endpoint, headerStr, decoded);
         return serverResponse;
     }
-
 
 
 }

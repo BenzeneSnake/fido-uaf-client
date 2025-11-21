@@ -2,6 +2,7 @@ package org.ebayopensource.fidouafclient.callback;
 
 public enum UAFRequestCode {
 
+    //TODO:把CODE拔掉
     DISCOVERY_INFO_1(1, "Discover info"),
     REG_ACTIVITY_RES_3(3, "Register Response"),
     AUTH_ACTIVITY_RES_5(5, "Authentication Response"),

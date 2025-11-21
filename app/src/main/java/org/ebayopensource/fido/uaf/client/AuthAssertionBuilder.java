@@ -38,171 +38,189 @@ import java.util.logging.Logger;
 
 public class AuthAssertionBuilder {
 
-	private static final String TAG = AuthAssertionBuilder.class.getSimpleName();
+    private static final String TAG = AuthAssertionBuilder.class.getSimpleName();
 
-	private static final Logger logger = Logger.getLogger(AuthAssertionBuilder.class.getName());
+    private static final Logger logger = Logger.getLogger(AuthAssertionBuilder.class.getName());
 
-	private FidoSigner fidoSigner;
-	private KeyPair signingKeyPair;
+    private FidoSigner fidoSigner;
+    private KeyPair signingKeyPair;
 
-	public AuthAssertionBuilder(FidoSigner fidoSigner, KeyPair signingKeyPair) {
-		this.fidoSigner = fidoSigner;
-		this.signingKeyPair = signingKeyPair;
-	}
+    public AuthAssertionBuilder(FidoSigner fidoSigner, KeyPair signingKeyPair) {
+        this.fidoSigner = fidoSigner;
+        this.signingKeyPair = signingKeyPair;
+    }
 
-	public String getAssertions(AuthenticationResponse response) throws Exception {
-		ByteArrayOutputStream byteout = new ByteArrayOutputStream();
-		byte[] value = null;
-		int length = 0;
+    public String getAssertions(AuthenticationResponse response) throws Exception {
+        ByteArrayOutputStream byteout = new ByteArrayOutputStream();
+        byte[] value = null;
+        int length = 0;
 
-		byteout.write(encodeInt(TagsEnum.TAG_UAFV1_AUTH_ASSERTION.id));
-		value = getAuthAssertion(response);
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
+        byteout.write(encodeInt(TagsEnum.TAG_UAFV1_AUTH_ASSERTION.id));
+        value = getAuthAssertion(response);
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		String ret = Base64url.encodeToString(byteout.toByteArray());
-		logger.info(" : assertion : " + ret);
-		return ret;
-	}
+        String ret = Base64url.encodeToString(byteout.toByteArray());
+        logger.info(" : assertion : " + ret);
+        return ret;
+    }
 
-	private byte[] getAuthAssertion(AuthenticationResponse response) throws Exception {
-		ByteArrayOutputStream byteout = new ByteArrayOutputStream();
-		byte[] value = null;
-		int length = 0;
+    private byte[] getAuthAssertion(AuthenticationResponse response) throws Exception {
+        ByteArrayOutputStream byteout = new ByteArrayOutputStream();
+        byte[] value = null;
+        int length = 0;
 
-		byteout.write(encodeInt(TagsEnum.TAG_UAFV1_SIGNED_DATA.id));
-		value = getSignedData(response);
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
+        byteout.write(encodeInt(TagsEnum.TAG_UAFV1_SIGNED_DATA.id));
+        value = getSignedData(response); // ← 使用私鑰簽名
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		byte[] signedDataValue = byteout.toByteArray();
+        byte[] signedDataValue = byteout.toByteArray();
 
-		byteout.write(encodeInt(TagsEnum.TAG_SIGNATURE.id));
-		value = getSignature(signedDataValue);
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
+        byteout.write(encodeInt(TagsEnum.TAG_SIGNATURE.id));
+        value = getSignature(signedDataValue);
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		return byteout.toByteArray();
-	}
+        return byteout.toByteArray();
+    }
 
-	private static byte[] makeAssertionInfo() {
-		//2 bytes - vendor; 1 byte Authentication Mode; 2 bytes Sig Alg
-		// XXX -- ugly. make this smarter and use consts
-		ByteBuffer bb = ByteBuffer.allocate(5);
-		bb.order(ByteOrder.LITTLE_ENDIAN);
-		//2 bytes - vendor
-		bb.put((byte)0x0);
-		bb.put((byte)0x0);
-		// 1 byte Authentication Mode;
-		bb.put((byte)0x1);
-		// 2 bytes Sig Alg
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			bb.putShort((short)AlgAndEncodingEnum.UAF_ALG_SIGN_SECP256R1_ECDSA_SHA256_DER.id);
-			//value = new byte[] { 0x00, 0x00, 0x01, 0x02, 0x00 };
-		} else {
-			//value = new byte[] { 0x00, 0x00, 0x01, 0x01, 0x00 };
-			bb.putShort((short)AlgAndEncodingEnum.UAF_ALG_SIGN_SECP256R1_ECDSA_SHA256_RAW.id);
-		}
+    private static byte[] makeAssertionInfo() {
+        //2 bytes - vendor; 1 byte Authentication Mode; 2 bytes Sig Alg
+        // XXX -- ugly. make this smarter and use consts
+        ByteBuffer bb = ByteBuffer.allocate(5);
+        bb.order(ByteOrder.LITTLE_ENDIAN);
+        //2 bytes - vendor
+        bb.put((byte) 0x0);
+        bb.put((byte) 0x0);
+        // 1 byte Authentication Mode;
+        bb.put((byte) 0x1);
+        // 2 bytes Sig Alg
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            bb.putShort((short) AlgAndEncodingEnum.UAF_ALG_SIGN_SECP256R1_ECDSA_SHA256_DER.id);
+            //value = new byte[] { 0x00, 0x00, 0x01, 0x02, 0x00 };
+        } else {
+            //value = new byte[] { 0x00, 0x00, 0x01, 0x01, 0x00 };
+            bb.putShort((short) AlgAndEncodingEnum.UAF_ALG_SIGN_SECP256R1_ECDSA_SHA256_RAW.id);
+        }
 
-		return bb.array().clone();
-	}
+        return bb.array().clone();
+    }
 
-	private byte[] getSignedData(AuthenticationResponse response) throws IOException, NoSuchAlgorithmException {
-		ByteArrayOutputStream byteout = new ByteArrayOutputStream();
-		byte[] value = null;
-		int length = 0;
+    private byte[] getSignedData(AuthenticationResponse response) throws IOException, NoSuchAlgorithmException {
+        ByteArrayOutputStream byteout = new ByteArrayOutputStream();
+        byte[] value = null;
+        int length = 0;
 
-		byteout.write(encodeInt(TagsEnum.TAG_AAID.id));
-		value = getAAID();
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
+        byteout.write(encodeInt(TagsEnum.TAG_AAID.id));
+        value = getAAID();
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		byteout.write(encodeInt(TagsEnum.TAG_ASSERTION_INFO.id));
-		value = makeAssertionInfo();
+        byteout.write(encodeInt(TagsEnum.TAG_ASSERTION_INFO.id));
+        value = makeAssertionInfo();
 
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		byteout.write(encodeInt(TagsEnum.TAG_AUTHENTICATOR_NONCE.id));
-		value = SHA.sha256(BCrypt.gensalt()).getBytes();
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
-		
-		byteout.write(encodeInt(TagsEnum.TAG_FINAL_CHALLENGE.id));
-		value = getFC(response);
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
-		
-		byteout.write(encodeInt(TagsEnum.TAG_TRANSACTION_CONTENT_HASH.id));
-		length = 0;
-		byteout.write(encodeInt(length));
-		
-		byteout.write(encodeInt(TagsEnum.TAG_KEYID.id));
-		value = getKeyId();
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
-		
-		byteout.write(encodeInt(TagsEnum.TAG_COUNTERS.id));
-		value = getCounters();
-		length = value.length;
-		byteout.write(encodeInt(length));
-		byteout.write(value);
+        byteout.write(encodeInt(TagsEnum.TAG_AUTHENTICATOR_NONCE.id));
+        value = SHA.sha256(BCrypt.gensalt()).getBytes();
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		return byteout.toByteArray();
-	}
-	
-	private byte[] getFC(AuthenticationResponse response) throws NoSuchAlgorithmException {
-		return SHA.sha(response.fcParams.getBytes(), "SHA-256");
-	}
-	
-	private byte[] getCounters() throws IOException {
-		ByteArrayOutputStream byteout = new ByteArrayOutputStream();
-		byteout.write(encodeInt(0));
-		byteout.write(encodeInt(1));
-		return byteout.toByteArray();
-	}
+        byteout.write(encodeInt(TagsEnum.TAG_FINAL_CHALLENGE.id));
+        value = getFC(response);
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-	private byte[] getSignature(byte[] dataForSigning) throws Exception {
-		Log.d(TAG, "getSignature");
+        byteout.write(encodeInt(TagsEnum.TAG_TRANSACTION_CONTENT_HASH.id));
+        length = 0;
+        byteout.write(encodeInt(length));
 
-		Log.i(TAG, "dataForSigning : " + Base64url.encode(dataForSigning));
-		byte[] ret = fidoSigner.sign(dataForSigning, signingKeyPair);
+        byteout.write(encodeInt(TagsEnum.TAG_KEYID.id));
+        value = getKeyId();
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		Log.i(TAG, " : signature : " + Base64url.encode(ret));
+        byteout.write(encodeInt(TagsEnum.TAG_COUNTERS.id));
+        value = getCounters();
+        length = value.length;
+        byteout.write(encodeInt(length));
+        byteout.write(value);
 
-		return ret;
-	}
+        return byteout.toByteArray();
+    }
 
-	private byte[] getKeyId() throws IOException {
-		ByteArrayOutputStream byteout = new ByteArrayOutputStream();
-		String keyId = Preferences.getSettingsParam("keyId");
-		byte[] value = keyId.getBytes();
-		byteout.write(value);
-		return byteout.toByteArray();
-	}
+    private byte[] getFC(AuthenticationResponse response) throws NoSuchAlgorithmException {
+        return SHA.sha(response.fcParams.getBytes(), "SHA-256");
+    }
 
-	private byte[] getAAID() throws IOException {
-		ByteArrayOutputStream byteout = new ByteArrayOutputStream();
-		byte[] value = "EBA0#0001".getBytes();
-		byteout.write(value);
-		return byteout.toByteArray();
-	}
+    private byte[] getCounters() throws IOException {
+        ByteArrayOutputStream byteout = new ByteArrayOutputStream();
 
-	private byte[] encodeInt(int id) {
+        // 從 SharedPreferences 讀取當前 counter（預設為 0）
+        long currentCounter = Preferences.getSettingsParamLong("signCounter", 0L);
 
-		byte[] bytes = new byte[2];
-		bytes[0] = (byte) (id & 0x00ff);
-		bytes[1] = (byte) ((id & 0xff00) >> 8);
-		return bytes;
-	}
+        // 遞增 counter（防重放攻擊的關鍵）
+        long newCounter = currentCounter + 1;
+
+        // 讀取 → 遞增 → 保存
+        Preferences.setSettingsParamLong("signCounter", newCounter);
+
+        Log.d(TAG, "Counter incremented: " + currentCounter + " -> " + newCounter);
+
+        // 按照 FIDO UAF TLV 格式編碼
+        // 第一個 int：Sign Counter (遞增計數器)
+        byteout.write(encodeInt((int) (newCounter & 0xFFFF))); // 低 16 bits
+        byteout.write(encodeInt((int) ((newCounter >> 16) & 0xFFFF))); // 高 16 bits
+        // 第二個 int：Timer Counter (通常設為 0 或時間戳)
+        byteout.write(encodeInt(0));// Timer Counter 低位
+        byteout.write(encodeInt(0));  // Timer Counter 高位
+
+        return byteout.toByteArray();
+    }
+
+    private byte[] getSignature(byte[] dataForSigning) throws Exception {
+        Log.d(TAG, "getSignature");
+
+        Log.i(TAG, "dataForSigning : " + Base64url.encode(dataForSigning));
+        byte[] ret = fidoSigner.sign(dataForSigning, signingKeyPair);
+
+        Log.i(TAG, " : signature : " + Base64url.encode(ret));
+
+        return ret;
+    }
+
+    private byte[] getKeyId() throws IOException {
+        ByteArrayOutputStream byteout = new ByteArrayOutputStream();
+        String keyId = Preferences.getSettingsParam("keyId"); // ← 從 SharedPreferences 取得
+        byte[] value = keyId.getBytes();
+        byteout.write(value);
+        return byteout.toByteArray();
+    }
+
+    private byte[] getAAID() throws IOException {
+        ByteArrayOutputStream byteout = new ByteArrayOutputStream();
+        byte[] value = "EBA0#0001".getBytes();
+        byteout.write(value);
+        return byteout.toByteArray();
+    }
+
+    private byte[] encodeInt(int id) {
+
+        byte[] bytes = new byte[2];
+        bytes[0] = (byte) (id & 0x00ff);
+        bytes[1] = (byte) ((id & 0xff00) >> 8);
+        return bytes;
+    }
 
 }
 

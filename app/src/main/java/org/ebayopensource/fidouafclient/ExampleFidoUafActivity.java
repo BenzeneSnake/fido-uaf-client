@@ -125,7 +125,12 @@ public class ExampleFidoUafActivity extends AppCompatActivity
                 Log.d(TAG, "op=Reg");
 
                 RegistrationRequest regRequest = gson.fromJson(inMsg, RegistrationRequest[].class)[0];
+
                 regOp = new Reg(regRequest.username, fidoKeystore);
+                //產生Assertion
+                //Authenticator（TEE / Secure Element）產生
+                // User Private Key（存在 TEE / SE）
+                // User Public Key（回傳給 FIDO Client）
                 msg = regOp.register(inMsg);
 
                 returnResultAndFinish(msg);
