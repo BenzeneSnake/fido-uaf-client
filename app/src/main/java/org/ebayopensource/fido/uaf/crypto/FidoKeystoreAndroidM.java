@@ -4,8 +4,10 @@ import android.hardware.fingerprint.FingerprintManager;
 import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+
 import android.util.Log;
 
 import java.io.IOException;
@@ -51,6 +53,7 @@ public class FidoKeystoreAndroidM extends FidoKeystore {
         try {
             String keyId = getKeyId(username);
             Log.d(TAG, "keyId = " + keyId);
+            //使用 AndroidKeyStore 建立 EC 金鑰產生器
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(
                     KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
             KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(
@@ -106,18 +109,18 @@ public class FidoKeystoreAndroidM extends FidoKeystore {
             keyStore.load(null);
 
             return keyStore;
-        } catch(GeneralSecurityException | IOException e) {
+        } catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public PublicKey getPublicKey(String username){
+    public PublicKey getPublicKey(String username) {
         return getCertificate(username).getPublicKey();
     }
 
     @Override
-    public X509Certificate getCertificate (String username){
+    public X509Certificate getCertificate(String username) {
         try {
             return (X509Certificate) getAndroidKeyStore().getCertificate(getKeyId(username));
         } catch (KeyStoreException e) {
@@ -126,7 +129,7 @@ public class FidoKeystoreAndroidM extends FidoKeystore {
     }
 
     @Override
-    public FidoSigner getSigner(String username){
+    public FidoSigner getSigner(String username) {
         try {
             PrivateKey privateKey = (PrivateKey) getAndroidKeyStore().getKey(getKeyId(username), null);
             Signature signature = Signature.getInstance("SHA256withECDSA");
@@ -134,7 +137,7 @@ public class FidoKeystoreAndroidM extends FidoKeystore {
 
             return new FidoSignerAndroidM(signature);
         } catch (GeneralSecurityException e) {
-           throw new RuntimeException(e);
+            throw new RuntimeException(e);
         }
     }
 }

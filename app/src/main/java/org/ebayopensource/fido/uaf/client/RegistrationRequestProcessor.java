@@ -30,52 +30,53 @@ import java.security.KeyPair;
 
 
 public class RegistrationRequestProcessor {
-	
-	public RegistrationResponse processRequest(RegistrationRequest regRequest, KeyPair keyPair) {
-		RegistrationResponse response = new RegistrationResponse();
-		RegAssertionBuilder builder = new RegAssertionBuilder(keyPair);
-		Gson gson = new Gson();
+
+    public RegistrationResponse processRequest(RegistrationRequest regRequest, KeyPair keyPair) {
+        RegistrationResponse response = new RegistrationResponse();
+        RegAssertionBuilder builder = new RegAssertionBuilder(keyPair);
+        Gson gson = new Gson();
 
 
-		setAppId(regRequest, response);
-		response.header = new OperationHeader();
-		response.header.serverData = regRequest.header.serverData;
-		response.header.appID = regRequest.header.appID;
-		response.header.op = regRequest.header.op;
-		response.header.upv = regRequest.header.upv;
+        setAppId(regRequest, response);
+        response.header = new OperationHeader();
+        response.header.serverData = regRequest.header.serverData;
+        response.header.appID = regRequest.header.appID;
+        response.header.op = regRequest.header.op;
+        response.header.upv = regRequest.header.upv;
 
-		FinalChallengeParams fcParams = new FinalChallengeParams();
-		fcParams.appID = regRequest.header.appID;
-		Preferences.setSettingsParam("appID", fcParams.appID);
-		fcParams.facetID = getFacetId();
-		fcParams.challenge = regRequest.challenge;
-		response.fcParams = Base64url.encodeToString(gson.toJson(
-				fcParams).getBytes());
-		setAssertions(response,builder);
-		return response;
-	}
+        FinalChallengeParams fcParams = new FinalChallengeParams();
+        fcParams.appID = regRequest.header.appID;
+        Preferences.setSettingsParam("appID", fcParams.appID);
+        fcParams.facetID = getFacetId();
+        fcParams.challenge = regRequest.challenge;
+        response.fcParams = Base64url.encodeToString(gson.toJson(
+                fcParams).getBytes());
+        //產生Assertions
+        setAssertions(response, builder);
+        return response;
+    }
 
-	private String getFacetId() {
-		return "";
-	}
+    private String getFacetId() {
+        return "";
+    }
 
-	private void setAssertions(RegistrationResponse response, RegAssertionBuilder builder) {
-		response.assertions = new AuthenticatorRegistrationAssertion[1];
-		try {
-			response.assertions[0] = new AuthenticatorRegistrationAssertion();
-			response.assertions[0].assertion = builder.getAssertions(response);
-			response.assertions[0].assertionScheme = "UAFV1TLV";
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-	}
+    private void setAssertions(RegistrationResponse response, RegAssertionBuilder builder) {
+        response.assertions = new AuthenticatorRegistrationAssertion[1];
+        try {
+            response.assertions[0] = new AuthenticatorRegistrationAssertion();
+            response.assertions[0].assertion = builder.getAssertions(response);
+            response.assertions[0].assertionScheme = "UAFV1TLV";
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
 
-	private void setAppId(RegistrationRequest regRequest,
-			RegistrationResponse response) {
-		// TODO Auto-generated method stub
-		
-	}
+    }
+
+    private void setAppId(RegistrationRequest regRequest,
+                          RegistrationResponse response) {
+        // TODO Auto-generated method stub
+
+    }
 
 }
